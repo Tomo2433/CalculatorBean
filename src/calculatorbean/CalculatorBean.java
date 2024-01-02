@@ -11,6 +11,10 @@ import java.awt.event.ActionListener;
 import java.beans.BeanProperty;
 import java.io.Serializable;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
 
 public class CalculatorBean extends JPanel implements Serializable {
 
@@ -32,6 +36,8 @@ public class CalculatorBean extends JPanel implements Serializable {
     private String welcomeMessage = "WITAJ!";
     private DecimalFormat decimalFormat;
     private int precision = 2;
+    private Clip additionSound;
+    private Clip subtractionSound;
 
     public CalculatorBean() {
         initComponents();
@@ -46,6 +52,18 @@ public class CalculatorBean extends JPanel implements Serializable {
         String[] buttonLabels = {"7", "8", "9", "/", "4", "5", "6", "*", "1", "2", "3", "-", "0", ".", "=", "+"};
         buttonsPanel = new JPanel();
         buttonsPanel.setLayout(new java.awt.GridLayout(4, 4));
+        
+        try {
+            AudioInputStream additionStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/boom.wav"));
+            additionSound = AudioSystem.getClip();
+            additionSound.open(additionStream);
+            
+            AudioInputStream subtractionStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/huh.wav"));
+            subtractionSound = AudioSystem.getClip();
+            subtractionSound.open(subtractionStream);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         for (String buttonLabel : buttonLabels) {
             JButton button = new JButton(buttonLabel);
@@ -69,8 +87,6 @@ public class CalculatorBean extends JPanel implements Serializable {
                                 display.setText("");
                                 isEquals = false;
                             }
-                            isContinueOperation = false;
-                            display.setText("");
                         }
                         checkError = display.getText();
                         if(checkError.equals("Error")) {
@@ -85,6 +101,9 @@ public class CalculatorBean extends JPanel implements Serializable {
                         performOperation(); 
                     } else if ("=".equals(buttonText)) {
                         isEquals = true;
+                        if(isContinueOperation) {
+                            isContinueOperation = false;
+                        }
                         performOperation();
                         //lastOperation = null;
                     }
@@ -108,10 +127,12 @@ public class CalculatorBean extends JPanel implements Serializable {
             double inputValue = Double.parseDouble(display.getText());
             switch (lastOperation) {
                 case "+":
+                    playSound(additionSound);
                     currentValue += inputValue;
                     display.setText("");
                     break;
                 case "-":
+                    playSound(subtractionSound);
                     if(inputValue > 0) inputValue *= -1;
                     currentValue += inputValue;
                     display.setText("");
@@ -221,7 +242,14 @@ public class CalculatorBean extends JPanel implements Serializable {
     }
     @BeanProperty
     public void setPrecision(int precision) {
-        decimalFormat = new DecimalFormat("#." + "0".repeat(precision));
+        if(precision != 0){
+            decimalFormat = new DecimalFormat("0." + "0".repeat(precision));
+            DecimalFormatSymbols symbols = new DecimalFormatSymbols();
+            symbols.setDecimalSeparator('.');
+            decimalFormat.setDecimalFormatSymbols(symbols);
+        }else{
+            decimalFormat = new DecimalFormat("0");
+        }
     }
     
     private void updateButtonColors() {
@@ -232,6 +260,12 @@ public class CalculatorBean extends JPanel implements Serializable {
                 button.setBackground(buttonBackgroundColor);
                 button.setForeground(buttonForegroundColor);
             }
+        }
+    }
+    private void playSound(Clip sound) {
+        if (sound != null) {
+            sound.setFramePosition(0);
+            sound.start();
         }
     }
 }
