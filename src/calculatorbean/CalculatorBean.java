@@ -97,6 +97,8 @@ public class CalculatorBean extends JPanel implements Serializable {
                     } else if ("+-*/".contains(buttonText)) {
                         isWelcome = false;
                         lastOperation = buttonText;
+                        if(buttonText == "+") playSound(additionSound);
+                        if(buttonText == "-") playSound(subtractionSound);
                         if(isEquals) isContinueOperation = true;
                         performOperation(); 
                     } else if ("=".equals(buttonText)) {
