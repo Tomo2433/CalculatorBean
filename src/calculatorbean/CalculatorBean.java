@@ -5,6 +5,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -20,14 +21,20 @@ public class CalculatorBean extends JPanel implements Serializable {
 
     private JTextField display;
     private JPanel buttonsPanel;
+    private JButton cancelButton;
     private Double currentValue = null;
+    private Double result;
     private String lastOperation;
     private String checkError;
     private boolean isEquals = false;
     private boolean isContinueOperation = false;
     private boolean isWelcome = true;
+    private boolean isSoundOn = true;
+
 
     // Dodane pola do dostosowania wyglądu
+    private Integer maxInputLength = 10;
+    private Integer buttonFontSize = 12;
     private Color buttonBackgroundColor = Color.LIGHT_GRAY;
     private Color buttonForegroundColor = Color.BLACK;
     private Color defaultColor = Color.WHITE;
@@ -35,10 +42,14 @@ public class CalculatorBean extends JPanel implements Serializable {
     private Color minusColor = Color.RED;
     private String welcomeMessage = "WITAJ!";
     private DecimalFormat decimalFormat;
-    private int precision = 2;
+    private Integer precision = 2;
     private Clip additionSound;
     private Clip subtractionSound;
-
+    private Clip divideSound;
+    private Clip multiplySound;
+    private Clip errorSound;
+    private Clip clickSound;
+    
     public CalculatorBean() {
         initComponents();
         setPrecision(precision);
@@ -53,22 +64,41 @@ public class CalculatorBean extends JPanel implements Serializable {
         buttonsPanel = new JPanel();
         buttonsPanel.setLayout(new java.awt.GridLayout(4, 4));
         
-        try {
-            AudioInputStream additionStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/boom.wav"));
-            additionSound = AudioSystem.getClip();
-            additionSound.open(additionStream);
-            
-            AudioInputStream subtractionStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/huh.wav"));
-            subtractionSound = AudioSystem.getClip();
-            subtractionSound.open(subtractionStream);
-        } catch (Exception e) {
-            e.printStackTrace();
+        if(isSoundOn){
+            try {
+                AudioInputStream additionStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/boom.wav"));
+                additionSound = AudioSystem.getClip();
+                additionSound.open(additionStream);
+
+                AudioInputStream subtractionStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/huh.wav"));
+                subtractionSound = AudioSystem.getClip();
+                subtractionSound.open(subtractionStream);
+
+                AudioInputStream divideStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/sul.wav"));
+                divideSound = AudioSystem.getClip();
+                divideSound.open(divideStream);
+
+                AudioInputStream multiplyStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/oof.wav"));
+                multiplySound = AudioSystem.getClip();
+                multiplySound.open(multiplyStream);
+
+                AudioInputStream clickStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/click.wav"));
+                clickSound = AudioSystem.getClip();
+                clickSound.open(clickStream);
+
+                AudioInputStream errorStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/error.wav"));
+                errorSound = AudioSystem.getClip();
+                errorSound.open(errorStream);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
 
         for (String buttonLabel : buttonLabels) {
             JButton button = new JButton(buttonLabel);
             button.setBackground(buttonBackgroundColor);
             button.setForeground(buttonForegroundColor);
+            button.setFont(new Font("Sagoe UI", Font.PLAIN, buttonFontSize));
             button.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
@@ -92,13 +122,21 @@ public class CalculatorBean extends JPanel implements Serializable {
                         if(checkError.equals("Error")) {
                             display.setText("");
                         }
-                        display.setText(display.getText() + buttonText);
+                        playSound(clickSound);
+                        if (display.getText().length() < maxInputLength) {
+                            display.setText(display.getText() + buttonText);
+                        }
 
                     } else if ("+-*/".contains(buttonText)) {
                         isWelcome = false;
                         lastOperation = buttonText;
+                        
                         if(buttonText == "+") playSound(additionSound);
                         if(buttonText == "-") playSound(subtractionSound);
+                        if(buttonText == "*") playSound(multiplySound);
+                        if(buttonText == "/") playSound(divideSound);
+                     
+                        //if(buttonText == "-") playSound(subtractionSound);
                         if(isEquals) isContinueOperation = true;
                         performOperation(); 
                     } else if ("=".equals(buttonText)) {
@@ -113,12 +151,27 @@ public class CalculatorBean extends JPanel implements Serializable {
             });
             buttonsPanel.add(button);
         }
+        cancelButton = new JButton("C");
+        cancelButton.setBackground(buttonBackgroundColor);
+        cancelButton.setForeground(buttonForegroundColor);
+        cancelButton.setFont(new Font("Sagoe UI", Font.PLAIN, buttonFontSize));
+        cancelButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                currentValue = null;
+                display.setText("");
+                lastOperation = null;
+                display.setBackground(defaultColor);
+            }
+        });
+        
         display.setFont(new java.awt.Font("Segoe Print", 0, 24));
         if(isWelcome) display.setText(welcomeMessage);
         // Układ interfejsu
         setLayout(new java.awt.BorderLayout());
         add(display, java.awt.BorderLayout.NORTH);
         add(buttonsPanel, java.awt.BorderLayout.CENTER);
+        add(cancelButton, java.awt.BorderLayout.SOUTH);
     }
     private void performOperation() {
         if (lastOperation != null && currentValue != null) {
@@ -129,12 +182,10 @@ public class CalculatorBean extends JPanel implements Serializable {
             double inputValue = Double.parseDouble(display.getText());
             switch (lastOperation) {
                 case "+":
-                    playSound(additionSound);
                     currentValue += inputValue;
                     display.setText("");
                     break;
                 case "-":
-                    playSound(subtractionSound);
                     if(inputValue > 0) inputValue *= -1;
                     currentValue += inputValue;
                     display.setText("");
@@ -149,12 +200,14 @@ public class CalculatorBean extends JPanel implements Serializable {
                         display.setText(String.valueOf(decimalFormat.format(currentValue)));
                     } else {
                         display.setText("Error");
+                        playSound(errorSound);
                         return;
                     }
                     break;
             }
             if(isEquals) {
                 display.setText(String.valueOf(decimalFormat.format(currentValue)));
+                result = currentValue;
                 if(currentValue < 0) { 
                     display.setBackground(minusColor);
                 } else if(currentValue > 0) {
@@ -167,6 +220,7 @@ public class CalculatorBean extends JPanel implements Serializable {
         } else {
             if(isEquals){
                 display.setText("Error");
+                playSound(errorSound);
                 isEquals = false;
                 return;
             }
@@ -210,8 +264,51 @@ public class CalculatorBean extends JPanel implements Serializable {
         return minusColor;
     }
     @BeanProperty
-    public int getPrecision() {
+    public Integer getPrecision() {
         return precision;
+    }
+    @BeanProperty
+    public boolean getIsSoundOn() {
+        return isSoundOn;
+    }
+    @BeanProperty
+    public Clip getAdditionSound() {
+        return additionSound;
+    }
+    @BeanProperty
+    public Clip getSubtractionSound() {
+        return subtractionSound;
+    }
+    @BeanProperty
+    public Clip getDivideSound() {
+        return divideSound;
+    }
+    @BeanProperty
+    public Clip getMultiplySound() {
+        return multiplySound;
+    }
+    @BeanProperty
+    public Clip getErrorSound() {
+        return errorSound;
+    }
+    @BeanProperty
+    public Clip getClickSound() {
+        return clickSound;
+    }
+    @BeanProperty
+    public Integer getButtonFontSize() {
+        return buttonFontSize;
+    }
+    @BeanProperty
+    public Integer getMaxInputLength() {
+        return maxInputLength;
+    }
+    public Double getResult() {
+        return result;
+    }
+
+    public void setResult(Double result) {
+        this.result = result;
     }
     // Dodane metody ustawiające dla dostosowywania wyglądu
     @BeanProperty
@@ -243,6 +340,36 @@ public class CalculatorBean extends JPanel implements Serializable {
         minusColor = color;
     }
     @BeanProperty
+    public void setAdditionSound(String file) {
+        updateSound(file, additionSound);
+    }
+    @BeanProperty
+    public void setSubtractionSound(String file) {
+        updateSound(file, subtractionSound);
+    }
+    @BeanProperty
+    public void setDivideSound(String file) {
+        updateSound(file, divideSound);
+    }
+    @BeanProperty
+    public void setMultiplySound(String file) {
+        updateSound(file, multiplySound);
+    }
+    @BeanProperty
+    public void setErrorSound(String file) {
+        updateSound(file, errorSound);
+    }
+    @BeanProperty
+    public void setClickSound(String file) {
+        updateSound(file, clickSound);
+    }
+    @BeanProperty
+    public void setMaxInputLength(int maxInputLength) {
+        this.maxInputLength = maxInputLength;
+    }
+
+    
+    @BeanProperty
     public void setPrecision(int precision) {
         if(precision != 0){
             decimalFormat = new DecimalFormat("0." + "0".repeat(precision));
@@ -253,22 +380,91 @@ public class CalculatorBean extends JPanel implements Serializable {
             decimalFormat = new DecimalFormat("0");
         }
     }
+    @BeanProperty
+    public void setIsSoundOn(boolean _isSoundOn) {
+        isSoundOn =_isSoundOn;
+        if(!isSoundOn)
+        {
+            additionSound.close();
+            subtractionSound.close();
+            divideSound.close();
+            multiplySound.close();
+            clickSound.close();
+        }else{
+            try {
+                AudioInputStream additionStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/boom.wav"));
+                additionSound = AudioSystem.getClip();
+                additionSound.open(additionStream);
+
+                AudioInputStream subtractionStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/huh.wav"));
+                subtractionSound = AudioSystem.getClip();
+                subtractionSound.open(subtractionStream);
+
+                AudioInputStream divideStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/sul.wav"));
+                divideSound = AudioSystem.getClip();
+                divideSound.open(divideStream);
+
+                AudioInputStream multiplyStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/oof.wav"));
+                multiplySound = AudioSystem.getClip();
+                multiplySound.open(multiplyStream);
+
+                AudioInputStream clickStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/click.wav"));
+                clickSound = AudioSystem.getClip();
+                clickSound.open(clickStream);
+
+                AudioInputStream errorStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/error.wav"));
+                errorSound = AudioSystem.getClip();
+                errorSound.open(errorStream);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    @BeanProperty
+    public void setButtonFontSize(int fontSize) {
+        this.buttonFontSize = fontSize;
+        updateButtonFont();
+    }
+
+    private void updateButtonFont() {
+        for (Component component : buttonsPanel.getComponents()) {
+            if (component instanceof JButton) {
+                JButton button = (JButton) component;
+                button.setFont(new Font("Sagoe UI", Font.PLAIN, buttonFontSize));
+            }
+        }
+    }
     
     private void updateButtonColors() {
         // Aktualizacja kolorów przycisków
-        for (java.awt.Component component : buttonsPanel.getComponents()) {
+        for (Component component : buttonsPanel.getComponents()) {
             if (component instanceof JButton) {
                 JButton button = (JButton) component;
                 button.setBackground(buttonBackgroundColor);
                 button.setForeground(buttonForegroundColor);
             }
         }
+        cancelButton.setBackground(buttonBackgroundColor);
+        cancelButton.setForeground(buttonForegroundColor);
     }
+    
+    private void updateSound(String file, Clip sound) {
+        try {
+            AudioInputStream soundStream = AudioSystem.getAudioInputStream(getClass().getResource(file));
+            sound = AudioSystem.getClip();
+            sound.open(soundStream);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private void playSound(Clip sound) {
         if (sound != null) {
             sound.setFramePosition(0);
             sound.start();
         }
     }
+    
+    
 }
 
