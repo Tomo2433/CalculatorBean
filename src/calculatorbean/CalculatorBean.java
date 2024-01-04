@@ -1,7 +1,6 @@
 package calculatorbean;
 
 import javax.swing.JButton;
-import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import java.awt.Color;
@@ -18,43 +17,69 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 
 public class CalculatorBean extends JPanel implements Serializable {
-
-    private JTextField display;
-    private JPanel buttonsPanel;
+  
+    private JTextField display;  
+    private JPanel buttonsPanel;  
     private JButton cancelButton;
+        
     private Double currentValue = null;
+        
     private Double result;
+        
     private String lastOperation;
+        
     private String checkError;
+        
     private boolean isEquals = false;
+        
     private boolean isContinueOperation = false;
+        
     private boolean isWelcome = true;
+        
     private boolean isSoundOn = true;
 
 
-    // Dodane pola do dostosowania wyglądu
+        // Dodane pola do dostosowania wyglądu
+        
     private Integer maxInputLength = 10;
+        
     private Integer buttonFontSize = 12;
+        
+    private Integer displayFontSize = 24;
+        
     private Color buttonBackgroundColor = Color.LIGHT_GRAY;
+        
     private Color buttonForegroundColor = Color.BLACK;
+        
     private Color defaultColor = Color.WHITE;
+        
     private Color plusColor = Color.GREEN;
+        
     private Color minusColor = Color.RED;
+        
     private String welcomeMessage = "WITAJ!";
+        
+    private String buttonFont = "Tahoma";
+        
+    private String displayFont = "Segoe Print";
+        
     private DecimalFormat decimalFormat;
-    private Integer precision = 2;
-    private Clip additionSound;
-    private Clip subtractionSound;
-    private Clip divideSound;
-    private Clip multiplySound;
-    private Clip errorSound;
-    private Clip clickSound;
+        
+    private Integer precision = 2;    
+    private transient Clip additionSound;   
+    private transient Clip subtractionSound;    
+    private transient Clip divideSound;   
+    private transient Clip multiplySound;   
+    private transient Clip errorSound;  
+    private transient Clip clickSound;  
+    private transient Clip cancelSound;
     
     public CalculatorBean() {
         initComponents();
         setPrecision(precision);
     }
 
+    
     private void initComponents() {
         display = new JTextField(10);
         display.setEditable(false);
@@ -89,6 +114,10 @@ public class CalculatorBean extends JPanel implements Serializable {
                 AudioInputStream errorStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/error.wav"));
                 errorSound = AudioSystem.getClip();
                 errorSound.open(errorStream);
+                
+                AudioInputStream cancelStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/mineCave.wav"));
+                cancelSound = AudioSystem.getClip();
+                cancelSound.open(cancelStream);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -98,7 +127,7 @@ public class CalculatorBean extends JPanel implements Serializable {
             JButton button = new JButton(buttonLabel);
             button.setBackground(buttonBackgroundColor);
             button.setForeground(buttonForegroundColor);
-            button.setFont(new Font("Sagoe UI", Font.PLAIN, buttonFontSize));
+            button.setFont(new Font(buttonFont, Font.PLAIN, buttonFontSize));
             button.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
@@ -123,6 +152,7 @@ public class CalculatorBean extends JPanel implements Serializable {
                             display.setText("");
                         }
                         playSound(clickSound);
+                        display.setBackground(defaultColor);
                         if (display.getText().length() < maxInputLength) {
                             display.setText(display.getText() + buttonText);
                         }
@@ -154,10 +184,11 @@ public class CalculatorBean extends JPanel implements Serializable {
         cancelButton = new JButton("C");
         cancelButton.setBackground(buttonBackgroundColor);
         cancelButton.setForeground(buttonForegroundColor);
-        cancelButton.setFont(new Font("Sagoe UI", Font.PLAIN, buttonFontSize));
+        cancelButton.setFont(new Font(buttonFont, Font.PLAIN, buttonFontSize));
         cancelButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                playSound(cancelSound);
                 currentValue = null;
                 display.setText("");
                 lastOperation = null;
@@ -165,7 +196,7 @@ public class CalculatorBean extends JPanel implements Serializable {
             }
         });
         
-        display.setFont(new java.awt.Font("Segoe Print", 0, 24));
+        display.setFont(new java.awt.Font(displayFont, 0, displayFontSize));
         if(isWelcome) display.setText(welcomeMessage);
         // Układ interfejsu
         setLayout(new java.awt.BorderLayout());
@@ -173,6 +204,7 @@ public class CalculatorBean extends JPanel implements Serializable {
         add(buttonsPanel, java.awt.BorderLayout.CENTER);
         add(cancelButton, java.awt.BorderLayout.SOUTH);
     }
+      
     private void performOperation() {
         if (lastOperation != null && currentValue != null) {
             if (isContinueOperation) {
@@ -182,22 +214,20 @@ public class CalculatorBean extends JPanel implements Serializable {
             double inputValue = Double.parseDouble(display.getText());
             switch (lastOperation) {
                 case "+":
-                    currentValue += inputValue;
+                    currentValue = add(currentValue, inputValue);
                     display.setText("");
                     break;
                 case "-":
-                    if(inputValue > 0) inputValue *= -1;
-                    currentValue += inputValue;
+                    currentValue = subtract(currentValue, inputValue);
                     display.setText("");
                     break;
                 case "*":
-                    currentValue *= inputValue;
+                    currentValue = multiply(currentValue, inputValue);;
                     display.setText("");
                     break;
                 case "/":
                     if (inputValue != 0) {
-                        currentValue /= inputValue;
-                        display.setText(String.valueOf(decimalFormat.format(currentValue)));
+                        currentValue = divide(currentValue, inputValue);
                     } else {
                         display.setText("Error");
                         playSound(errorSound);
@@ -303,10 +333,24 @@ public class CalculatorBean extends JPanel implements Serializable {
     public Integer getMaxInputLength() {
         return maxInputLength;
     }
+    @BeanProperty
+    public String getButtonFont() {
+        return buttonFont;
+    }
+    @BeanProperty
+    public String getDisplayFont() {
+        return displayFont;
+    }
+    @BeanProperty
+    public Integer getDisplayFontSize() {
+        return displayFontSize;
+    }
+    
+    
     public Double getResult() {
         return result;
     }
-
+    
     public void setResult(Double result) {
         this.result = result;
     }
@@ -367,10 +411,9 @@ public class CalculatorBean extends JPanel implements Serializable {
     public void setMaxInputLength(int maxInputLength) {
         this.maxInputLength = maxInputLength;
     }
-
-    
     @BeanProperty
-    public void setPrecision(int precision) {
+    public void setPrecision(Integer precision) {
+        this.precision = precision;
         if(precision != 0){
             decimalFormat = new DecimalFormat("0." + "0".repeat(precision));
             DecimalFormatSymbols symbols = new DecimalFormatSymbols();
@@ -380,7 +423,6 @@ public class CalculatorBean extends JPanel implements Serializable {
             decimalFormat = new DecimalFormat("0");
         }
     }
-    @BeanProperty
     public void setIsSoundOn(boolean _isSoundOn) {
         isSoundOn =_isSoundOn;
         if(!isSoundOn)
@@ -390,6 +432,8 @@ public class CalculatorBean extends JPanel implements Serializable {
             divideSound.close();
             multiplySound.close();
             clickSound.close();
+            errorSound.close();
+            cancelSound.close();
         }else{
             try {
                 AudioInputStream additionStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/boom.wav"));
@@ -415,6 +459,10 @@ public class CalculatorBean extends JPanel implements Serializable {
                 AudioInputStream errorStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/error.wav"));
                 errorSound = AudioSystem.getClip();
                 errorSound.open(errorStream);
+                
+                AudioInputStream cancelStream = AudioSystem.getAudioInputStream(getClass().getResource("/sounds/mineCave.wav"));
+                cancelSound = AudioSystem.getClip();
+                cancelSound.open(cancelStream);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -425,16 +473,57 @@ public class CalculatorBean extends JPanel implements Serializable {
         this.buttonFontSize = fontSize;
         updateButtonFont();
     }
-
+    @BeanProperty
+    public void setButtonFont(String _buttonFont) {
+        buttonFont = _buttonFont;
+        updateButtonFont();
+    }
+    @BeanProperty
+    public void setDisplayFont(String displayFont) {
+        this.displayFont = displayFont;
+        updateDisplay();
+    }
+    @BeanProperty 
+    public void setDisplayFontSize(Integer _displayFontSize) {
+        displayFontSize = _displayFontSize;
+        updateDisplay();
+    }
+    
+    
+        
+    private Double add(Double valueA, Double valueB) {
+        return valueA + valueB;
+    }
+        
+    private Double subtract(Double valueA, Double valueB) {
+        if(valueB > 0) valueB *= -1;
+        return valueA + valueB;
+    }
+        
+    private Double multiply(Double valueA, Double valueB) {
+        return valueA * valueB;
+    }
+        
+    private Double divide(Double valueA, Double valueB) {
+        return valueA / valueB;
+    }
+    
+      
     private void updateButtonFont() {
         for (Component component : buttonsPanel.getComponents()) {
             if (component instanceof JButton) {
                 JButton button = (JButton) component;
-                button.setFont(new Font("Sagoe UI", Font.PLAIN, buttonFontSize));
+                button.setFont(new Font(buttonFont, Font.PLAIN, buttonFontSize));
             }
         }
+        cancelButton.setFont(new Font(buttonFont, Font.PLAIN, buttonFontSize));
     }
     
+        
+    private void updateDisplay() {
+        display.setFont(new Font(displayFont, 0, displayFontSize));
+    }
+     
     private void updateButtonColors() {
         // Aktualizacja kolorów przycisków
         for (Component component : buttonsPanel.getComponents()) {
@@ -448,6 +537,75 @@ public class CalculatorBean extends JPanel implements Serializable {
         cancelButton.setForeground(buttonForegroundColor);
     }
     
+    public void updateButtonListeners() {
+        for (Component component : buttonsPanel.getComponents()) {
+            if (component instanceof JButton) {
+                JButton button = (JButton) component;
+                button.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    JButton source = (JButton) e.getSource();
+                    String buttonText = source.getText();
+
+                    // Obsługa przycisków
+                    if (Character.isDigit(buttonText.charAt(0)) || buttonText.equals(".")) {
+                        if(isWelcome) {
+                            isWelcome = false;
+                            display.setText("");
+                        }
+                        if(isEquals) {
+                            if(!isContinueOperation){
+                                currentValue = null;
+                                display.setText("");
+                                isEquals = false;
+                            }
+                        }
+                        checkError = display.getText();
+                        if(checkError.equals("Error")) {
+                            display.setText("");
+                        }
+                        playSound(clickSound);
+                        display.setBackground(defaultColor);
+                        if (display.getText().length() < maxInputLength) {
+                            display.setText(display.getText() + buttonText);
+                        }
+
+                    } else if ("+-*/".contains(buttonText)) {
+                        isWelcome = false;
+                        lastOperation = buttonText;
+                        
+                        if("+".equals(buttonText)) playSound(additionSound);
+                        if("-".equals(buttonText)) playSound(subtractionSound);
+                        if("*".equals(buttonText)) playSound(multiplySound);
+                        if("/".equals(buttonText)) playSound(divideSound);
+                     
+                        //if(buttonText == "-") playSound(subtractionSound);
+                        if(isEquals) isContinueOperation = true;
+                        performOperation(); 
+                    } else if ("=".equals(buttonText)) {
+                        isEquals = true;
+                        if(isContinueOperation) {
+                            isContinueOperation = false;
+                        }
+                        performOperation();
+                        //lastOperation = null;
+                    }
+                }
+            });
+            }
+        }
+        cancelButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                playSound(cancelSound);
+                currentValue = null;
+                display.setText("");
+                lastOperation = null;
+                display.setBackground(defaultColor);
+            }
+        });
+    }
+       
     private void updateSound(String file, Clip sound) {
         try {
             AudioInputStream soundStream = AudioSystem.getAudioInputStream(getClass().getResource(file));
@@ -457,14 +615,12 @@ public class CalculatorBean extends JPanel implements Serializable {
             e.printStackTrace();
         }
     }
-
+  
     private void playSound(Clip sound) {
         if (sound != null) {
             sound.setFramePosition(0);
             sound.start();
         }
     }
-    
-    
 }
 
